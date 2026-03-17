@@ -9,7 +9,6 @@ class AreaItem {
     Color color;
     String type; 
     double pitch, yaw;
-    int chosenObject = 0;
 
     public AreaItem(double cx, double cy, double cz, int w, int h, int d, String type, Color col, double p, double y) {
         this.cx = cx; this.cy = cy; this.cz = cz;
@@ -34,7 +33,8 @@ public class Area extends JPanel implements ActionListener, KeyListener {
     
     boolean isWalking = false;
     double animTime = 0;
-
+    int num = 0;
+    
     ArrayList<AreaItem> items = new ArrayList<>();
 
     class Point3D { double x, y, z; Point3D(double x, double y, double z) { this.x=x; this.y=y; this.z=z; } }
@@ -65,6 +65,15 @@ public class Area extends JPanel implements ActionListener, KeyListener {
 
     public Area() {
         Color vhsYellow = new Color(240, 200, 0);
+        // KEY For Prism and Sphere: (X pos, Y pos, Z pos, Width, Height, Depth, Type, Color, Pitch, Yaw)
+        // KEY: (X pos, Y pos, Z pos, Radius, Height, Type, Color, Pitch, Yaw)
+        
+        //Walls and Ground dont work especially ground
+        /*items.add(new AreaItem(500, -10, 400, 1, 500, 1000, "prism", Color.WHITE, 0, 0)); 
+        items.add(new AreaItem(0, -10, -600, 1000, 500, 1, "prism", Color.WHITE, 0, 0)); 
+        items.add(new AreaItem(0, -10, 600, 1000, 500, 1, "prism", Color.WHITE, 0, 0)); 
+        items.add(new AreaItem(-500, -10, 400, 1, 500, 1000, "prism", Color.WHITE, 0, 0));
+        items.add(new AreaItem(0, 100, 400, 2000, 1, 2000, "prism", Color.WHITE, 0, 0)); */
         items.add(new AreaItem(0, -100, 400, 45, 45, 45, "sphere", vhsYellow, 0, 0)); 
         items.add(new AreaItem(0, -10, 400, 60, 90, 40, "prism", vhsYellow, 0, 0));  
         items.add(new AreaItem(-45, -10, 375, 8, 100, "cylinder", Color.GRAY, -45, 35));
@@ -98,12 +107,17 @@ public class Area extends JPanel implements ActionListener, KeyListener {
         double ry = wy * Math.cos(rotateX) + rz1 * Math.sin(rotateX);
         double rz = -wy * Math.sin(rotateX) + rz1 * Math.cos(rotateX);
 
-        double zoom = (rz > 10) ? 600.0 / rz : -1; 
+        double safeZ = Math.max(1.0, rz); 
+        double zoom = 600.0 / safeZ; 
         return new Point3D(rx * zoom, ry * zoom, rz);
     }
 
     private Face createFace(Point3D[] verts, Color col) {
-        for(Point3D v : verts) if (v.z < 10) return null;
+        boolean allBehind = true;
+        for(Point3D v : verts) {
+            if (v.z >= 10) allBehind = false;
+        }
+        if (allBehind) return null;
         double v1x = verts[1].x - verts[0].x;
         double v1y = verts[1].y - verts[0].y;
         double v2x = verts[2].x - verts[0].x;
@@ -163,6 +177,7 @@ public class Area extends JPanel implements ActionListener, KeyListener {
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
+        
         g2d.translate(getWidth()/2, getHeight()/2);
         ArrayList<Face> allFaces = new ArrayList<>();
         
@@ -172,8 +187,6 @@ public class Area extends JPanel implements ActionListener, KeyListener {
             if (isWalking && L.type.equals("cylinder") && L.cy == 36) {
                 double swing = (i == 7) ? Math.sin(animTime) : Math.sin(animTime + Math.PI);
                 L.pitch = Math.toRadians(swing * 30);
-            } else if (!isWalking && L.type.equals("cylinder") && L.cy == 36) {
-                //L.pitch = 0; 
             }
 
             if (L.type.equals("sphere")) {
@@ -199,8 +212,16 @@ public class Area extends JPanel implements ActionListener, KeyListener {
         double speed = 8.0; double sY = Math.sin(rotateY), cY = Math.cos(rotateY);
         if (wKey) { offX -= sY*speed; offZ += cY*speed; } if (sKey) { offX += sY*speed; offZ -= cY*speed; }
         if (aKey) { offX -= cY*speed; offZ -= sY*speed; } if (dKey) { offX += cY*speed; offZ += sY*speed; }
-        if (tKey) {chosenObject.cz +=} if (gKey) {}
-        if (fKey) {} if (hKey) {}
+        
+        if (num >= 0 && num < items.size()) {
+            AreaItem selected = items.get(num);
+            double moveSpeed = 5.0;
+            if (tKey) selected.cz += moveSpeed; 
+            if (gKey) selected.cz -= moveSpeed;
+            if (fKey) selected.cx -= moveSpeed; 
+            if (hKey) selected.cx += moveSpeed;
+        }
+
         if (pageUpKey) offY -= speed; if (pageDownKey) offY += speed;
         repaint();
     }
@@ -213,8 +234,11 @@ public class Area extends JPanel implements ActionListener, KeyListener {
         if (k == KeyEvent.VK_W) wKey = true; if (k == KeyEvent.VK_S) sKey = true;
         if (k == KeyEvent.VK_A) aKey = true; if (k == KeyEvent.VK_D) dKey = true;
         if (k == KeyEvent.VK_PAGE_UP) pageUpKey = true; if (k == KeyEvent.VK_PAGE_DOWN) pageDownKey = true;
-        if (k == KeyEvent.VK_T) tKey = false; if (k == KeyEvent.VK_G) gKey = false;
-        if (k == KeyEvent.VK_F) fKey = false; if (k == KeyEvent.VK_H) hKey = false;
+        if (k == KeyEvent.VK_T) tKey = true; if (k == KeyEvent.VK_G) gKey = true;
+        if (k == KeyEvent.VK_F) fKey = true; if (k == KeyEvent.VK_H) hKey = true;
+        if (k >= KeyEvent.VK_0 && k <= KeyEvent.VK_9) {
+            num = k - KeyEvent.VK_0;
+        }
     }
     public void keyReleased(KeyEvent e) {
         int k = e.getKeyCode();
